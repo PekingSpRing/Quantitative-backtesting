@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 class DataReader:
+    #数据读取类
     def __init__(self, path):
         self.path = path
         self.data=pd.read_feather(path)
@@ -10,7 +11,7 @@ class DataReader:
 
     def drop_discrete_data(self):
         # 删除离散数据
-        # 获取最全面的日期范围
+        # 获取最全面的日期范围和获得完整记录的股票
         complete_dates = self.data['date'].drop_duplicates().sort_values().reset_index(drop=True)
 
         # 筛选出完整记录的股票

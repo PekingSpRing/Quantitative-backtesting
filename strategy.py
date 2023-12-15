@@ -18,7 +18,8 @@ class My_Strategy:
         self.stock_number={}         #股票持有量字典，key为股票代码，value为该股票的持有量
         self.signal={}               #信号字典，key为股票代码，value为该股票的信号
                                      #为一个列表，列表中的元素为每天的信号，1为买入，-1为卖出，0为不操作
-        
+        self.real_money={}           #当前的总价值字典，key为股票代码，value为目前手里所有股票+现金的总价值
+                                     #value为一个嵌套列表，列表中的元素为日期+总价值
         self.start_time=date_list[0] #获取回测开始时间  第一天和最后一天是默认值，后面可以修改
         self.end_time=date_list[-1]  #获取回测结束时间
 
@@ -32,8 +33,13 @@ class My_Strategy:
             #默认情况下，choice='default'，每只股票的资产配置为初始资金除以股票数量
             sigle_money=self.start_money/len(self.stock_list)
             for stock in self.stock_list:
-                self.stock_money[stock]=self.start_money/len(self.stock_list)
-                self.stock_number[stock]=0 #顺便初始化一下股票持有量字典
+                self.stock_money[stock]=[]
+                self.stock_money[stock].append(['before start',self.start_money/len(self.stock_list)])
+                self.stock_number[stock]=[] #顺便初始化一下股票持有量字典
+                self.stock_money[stock].append(['before start',0])#最开始每个股票的持有量都是0
+                self.real_money[stock]=[]#顺便初始化一下总价值字典
+                self.real_money[stock].append(['before start',self.start_money/len(self.stock_list)])
+                
         elif choice=='by_market_cap':
             #按照市值进行资产配置，但是我还没想好
             print("第二种资产配置方式我还没想好")
@@ -51,7 +57,7 @@ class My_Strategy:
             for stk_id, data in self.daily_data.groupby('stk_id'):
                 self.signal[stk_id] = []
                 for date, row in data.iterrows():
-                    data=datetime.strptime(date, '%Y-%m-%d')
+                    date=datetime.strptime(date, '%Y-%m-%d')
                     if start_date <= date <= end_date:
                         mean_price = data.loc[data.index < date, 'close'].tail(self.reverse_time).mean()
                         current_price = row['close']
