@@ -3,6 +3,11 @@ import numpy as np
 from data_reader import DataReader
 from strategy import My_Strategy
 from datetime import datetime
+import matplotlib.pyplot as plt
+import json
+from tqdm import tqdm
+
+#import cProfile
 
 class Backtesting:
     #这是一个专门用于回测的类
@@ -10,7 +15,7 @@ class Backtesting:
                  date_list,start_stock_moneylist,
                  signal_list,start_time,end_time):
         self.daily_data=daily_data           #获取按日期的数据
-        self.daily_data.set_index(['stk_id', 'date'], inplace=True)#设置股票代码和日期为索引
+        #self.daily_data.set_index(['stk_id', 'date'], inplace=True)#设置股票代码和日期为索引
         self.start_money=start_money         #获取初始资金
         self.stock_list=stock_list           #获取股票列表
         self.date_list=date_list             #获取日期列表
@@ -41,13 +46,15 @@ class Backtesting:
                                              #为一个嵌套列表，列表中的元素为日期+当日的日志
         self.logger_date=[]                  #日志列表，列表中的元素为每天的日志
         self.profit_sum_stock={}             #收益汇总字典，key为股票代码，value为该股票的收益汇总
-        self.profit_sum_date=[]              #收益汇总列表，列表中的元素为每天的收益汇总                              
+        self.profit_sum_date=[]              #收益汇总列表，列表中的元素为每天的收益汇总
+        self.performance={}                  #性能指标字典，key为性能指标名字，value为该性能指标的值          
         
 
 
         self.yongjin_rate=0.001              #佣金费率，默认为0.001
         self.yinhua_tax_rate=0.001           #印花税率，默认为0.001
         self.guohu_tax_rate=0.002            #过户费率，默认为0.002
+    
     
     def initialize_dict(self):
         #初始化各种字典，包括收益字典，每日总资产字典，股票持有量字典，现金字典
@@ -66,42 +73,53 @@ class Backtesting:
 
             self.real_money_day['before start']=self.start_money#初始化一下每日总价值字典,最开始的净值就是初始资金
             self.net_value_day['before start']=1.0#初始化一下每日总净值,最开始的净值就是1
-        
+    
+
     def trade_by_signal(self):
+        #读取字典
+        #nested_dict=json.load(open('nested_dict.json','r'))
         #根据信号进行交易,记录下每个时刻的收益和每个时刻的持仓
-        start_date = datetime.strptime(self.start_time, '%Y-%m-%d')
-        end_date = datetime.strptime(self.end_time, '%Y-%m-%d')
-        for stock in self.stock_list:
+        nested_dict = self.daily_data.set_index(['stk_id', 'date']).to_dict(orient='index')
+        #将字典以json格式存储
+        #json.dump(nested_dict, open('nested_dict.json', 'w'))
+
+        for stock in tqdm(self.stock_list):
+            #stock_data = self.daily_data[self.daily_data['stk_id'] == stock]
+            #stock_prices = stock_data.set_index('date')['close']
+            last_option = -1 #初始值设置为-1，表示上一次操作是卖出，因为最开始的时候其实就是卖出的状态
             #遍历每只股票，对每只股票进行交易
             for stock_signal in self.signal[stock]:
                 #遍历每只股票的信号，对每只股票进行交易，stock_signal为[日期+信号+数量]
                 temp_date=stock_signal[0]
                 temp_signal=stock_signal[1]
                 temp_number=stock_signal[2]
-                if temp_signal==1:
+                price = nested_dict[(stock,temp_date)]['close']
+                if temp_signal==1 and last_option!=1:
+                    #也就是说，没有被一直买入，那就买入
                     #如果信号为1，即买入信号
-                    self.buy_stock(stock,temp_date,temp_number)
-                elif temp_signal==-1:
+                    self.buy_stock(stock,temp_date,temp_number,price)
+                    last_option=1
+                elif temp_signal==-1 and last_option!=-1:
                     #如果信号为-1，即卖出信号
-                    self.sell_stock(stock,temp_date,temp_number)
+                    self.sell_stock(stock,temp_date,temp_number,price)
+                    last_option=-1
                 else:
-                    #如果信号为0，即不操作
+                    #如果信号为0，或者说发出了重复信号，就不操作
                     yesterday_money=self.stock_money[stock][-1][1]#获取该股票的当前资产,最后一个列表的第二个元素
                     yesterday_number=self.stock_number[stock][-1][1]#获取该股票的当前持有量,最后一个列表的第二个元素
                     self.stock_money[stock].append([temp_date,yesterday_money])
                     self.stock_number[stock].append([temp_date,yesterday_number])
-                    price=self.daily_data.loc[(stock,temp_date),'close']#获取当日收盘价
                     self.real_money[stock].append([temp_date,yesterday_money+yesterday_number*price])
                     #虽然没有进行任何操作，但是依然要记录下每天的持仓和每天的总价值
                 if temp_date not in self.real_money_day:
                     self.real_money_day[temp_date]=0
                 self.real_money_day[temp_date]+=self.real_money[stock][-1][1]#交易完之后，计算本日的总价值
              
-    def buy_stock(self,stock,date,sig_number):
+    def buy_stock(self,stock,date,sig_number,price):
         #stock是股票名字
         #date是日期，字符串形式
         #number是买入数量      
-        price=self.daily_data.loc[(stock,date),'close']#获取当日收盘价
+        #price=self.daily_data.loc[(stock,date),'close']#获取当日收盘价
         money=self.stock_money[stock][-1][1]#获取该股票的当前资产,最后一个列表的第二个元素
         number=self.stock_number[stock][-1][1]#获取该股票的当前持有量,最后一个列表的第二个元素
         if sig_number=='full':
@@ -118,12 +136,13 @@ class Backtesting:
                 #如果买入数量不为0，则记录下日志
                 if stock not in self.logger_stock.keys():
                     self.logger_stock[stock]=[]
-                self.logger_stock[stock].append([date,'buy '+stock+',number-'+buy_number,', price-',price])
-                self.logger_date.append(date,'buy '+stock+',number-'+buy_number,', price-',price)
+                self.logger_stock[stock].append([date,'buy '+stock+',number-'+str(buy_number)+', price-'+str(price)])
+                return (date+' buy '+stock+',number-'+str(buy_number)+', price-'+str(price))
+                #self.logger_date.append(date+' buy '+stock+',number-'+str(buy_number)+', price-'+str(price))
             #计算收益这一部分最后算吧，我记录下每一天的持仓和资金，就可以算收益了
             else:
                 #如果买入数量为0，则说明没钱了，无所谓，日志不作记录
-                return
+                return ''
         else:
             ######！！！！！！！！！！！！！！！！！！！！！################
             #如果你输入的是一个数字，那么就按照你的数字买入
@@ -131,12 +150,12 @@ class Backtesting:
             ######！！！！！！！！！！！！！！！！！！！！！################
             pass
 
-    def sell_stock(self,stock,date,sig_number):
+    def sell_stock(self,stock,date,sig_number,price):
         #卖出股票
         #stock是股票名字
         #date是日期，字符串形式
         #number是卖出数量
-        price=self.daily_data.loc[(stock,date),'close']
+        #price=self.daily_data.loc[(stock,date),'close']
         money=self.stock_money[stock][-1][1]
         number=self.stock_number[stock][-1][1]
         if sig_number=='full':
@@ -152,11 +171,12 @@ class Backtesting:
                 #如果卖出数量不为0，则记录下日志
                 if stock not in self.logger_stock.keys():
                     self.logger_stock[stock]=[]
-                self.logger_stock[stock].append([date,'sell '+stock+',number-'+sell_number,', price-',price])
-                self.logger_date.append(date,'sell '+stock+',number-'+sell_number,', price-',price)
+                self.logger_stock[stock].append([date,'sell '+stock+',number-'+str(sell_number)+', price-'+str(price)])
+                return (date+' sell '+stock+',number-'+str(sell_number)+', price-'+str(price))
+                self.logger_date.append(date+' sell '+stock+',number-'+str(sell_number)+', price-'+str(price))
             else:
                 #如果卖出数量为0，则说明没股票了，无所谓，日志不作记录
-                return
+                return ''
         else:
             ######！！！！！！！！！！！！！！！！！！！！！################
             #如果你输入的是一个数字，那么就按照你的数字卖出
@@ -164,7 +184,13 @@ class Backtesting:
             ######！！！！！！！！！！！！！！！！！！！！！################
             pass
     
-    def calculate_profit(self):
+    def calculate_performance_metrics(self):
+        self.calculate_net_value()#计算每只股票的净值收益
+
+        #计算回测的各种性能指标
+        pass
+
+    def calculate_net_value(self):
         #计算每只股票的收益
         for stock in self.real_money:
             #遍历每只股票
@@ -179,9 +205,15 @@ class Backtesting:
             temp_day_net_value=self.real_money_day[day]/self.start_money
             self.net_value_day[day]=temp_day_net_value
 
-    def calculate_performance_metrics(self):
-        #计算回测的各种性能指标
-        pass
+    
+
+    def draw_net_value(self):
+        #绘制净值曲线
+        all_net_value=list(self.net_value_day.values())
+        all_date=list(self.net_value_day.keys())
+        plt.plot(all_net_value)
+        plt.show()
+
 
     def set_fee_rate(self,yongjin_rate,yinhua_tax_rate,guohu_tax_rate):
         #通过外界参数获取各个手续费率
@@ -189,6 +221,25 @@ class Backtesting:
         self.yinhua_tax_rate=yinhua_tax_rate
         self.guohu_tax_rate=guohu_tax_rate
 
+    
+
 if __name__ == '__main__':
     #仅仅用于测试
-    pass
+    data_reader=DataReader('raw_data/stk_daily.feather')
+    all_stocks,all_days=data_reader.drop_discrete_data()
+    start_time='2020-02-19'
+    end_time='2022-12-30'
+    my_strategy=My_Strategy(data_reader.data_new,all_stocks,all_days)
+    my_strategy.run_Strategy(start_time,end_time,signal_choices='fromfiles',signal_path='signal.json')
+    #my_strategy.run_Strategy(start_time,end_time)
+    #my_strategy.save_signal('signal.json')
+    backtest=Backtesting(data_reader.data_new, my_strategy.start_money,all_stocks
+                         ,all_days,my_strategy.start_stock_money
+                         ,my_strategy.signal,start_time,end_time)
+
+    backtest.trade_by_signal()
+    #backtest.multiprocessing_trade(core_num=5)
+    backtest.calculate_performance_metrics()
+    backtest.draw_net_value()
+
+
