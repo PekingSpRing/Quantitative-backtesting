@@ -1,5 +1,5 @@
 import pandas as pd
-from data_reader import DataReader
+from mysystem.data_reader import DataReader
 import numpy as np
 
 class Your_strategy:
@@ -17,8 +17,6 @@ class Your_strategy:
         self.start_time=date_list[0] #获取回测开始时间  第一天和最后一天是默认值，后面可以修改
         self.end_time=date_list[-1]  #获取回测结束时间
 
-        self.reverse_time=22         #反转因子的时间窗口,默认为22天
-        self.reverse_rate=0.05        #反转因子的阈值,默认为0.05
     
     def set_time_block(self,start_day,end_day):
         #设置回测的时间段,格式必须是：2020-01-02 这样的字符串

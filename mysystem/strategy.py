@@ -1,7 +1,7 @@
 import pandas as pd
-from data_reader import DataReader
+from mysystem.data_reader import DataReader
 import numpy as np
-from design_strategy import Your_strategy
+from mysystem.design_strategy import Your_strategy
 import json
 from datetime import datetime
 from tqdm import tqdm

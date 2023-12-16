@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
-from data_reader import DataReader
-from strategy import My_Strategy
+from mysystem.data_reader import DataReader
+from mysystem.strategy import My_Strategy
 from datetime import datetime
 import matplotlib.pyplot as plt
 import json
