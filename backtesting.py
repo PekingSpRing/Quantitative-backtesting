@@ -54,6 +54,8 @@ class Backtesting:
         self.yongjin_rate=0.001              #佣金费率，默认为0.001
         self.yinhua_tax_rate=0.001           #印花税率，默认为0.001
         self.guohu_tax_rate=0.002            #过户费率，默认为0.002
+        self.nodanger_rate=0.03              #无风险利率，默认为0.03
+        self.benchmark_rate=0.1              #基准收益率，默认为0.1
     
     
     def initialize_dict(self):
