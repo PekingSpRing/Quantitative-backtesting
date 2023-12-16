@@ -188,9 +188,24 @@ class Backtesting:
     
     def calculate_performance_metrics(self):
         self.calculate_net_value()#计算每只股票的净值收益
+        all_net_value=list(self.net_value_day.values())
+        #计算超额收益
+        Excess_Return=all_net_value[-1]-self.benchmark_rate
+        #计算年化收益
+        Annual_Return=(1+all_net_value[-1])**(250/len(all_net_value))-1
+        #计算年化波动率
+        Annual_Volatility=np.std(np.array(all_net_value))*np.sqrt(len(all_net_value)/250)
+        #计算夏普比率
+        Sharpe_Ratio=(Annual_Return-self.nodanger_rate)/Annual_Volatility
+        #计算最大回撤
+        Max_Drawdown=(max(all_net_value)-min(all_net_value))/max(all_net_value)
+        self.performance['Excess_Return']=Excess_Return
+        self.performance['Annual_Return']=Annual_Return
+        self.performance['Annual_Volatility']=Annual_Volatility
+        self.performance['Sharpe_Ratio']=Sharpe_Ratio
+        self.performance['Max_Drawdown']=Max_Drawdown
 
-        #计算回测的各种性能指标
-        pass
+        return self.performance
 
     def calculate_net_value(self):
         #计算每只股票的收益
@@ -206,6 +221,7 @@ class Backtesting:
             #遍历每一天,算出每一天的总净值收益
             temp_day_net_value=self.real_money_day[day]/self.start_money
             self.net_value_day[day]=temp_day_net_value
+        
 
     
 
@@ -213,15 +229,17 @@ class Backtesting:
         #绘制净值曲线
         all_net_value=list(self.net_value_day.values())
         all_date=list(self.net_value_day.keys())
-        plt.plot(all_net_value)
-        plt.show()
+        return all_net_value,all_date
 
 
-    def set_fee_rate(self,yongjin_rate,yinhua_tax_rate,guohu_tax_rate):
+
+    def set_fee_rate(self,yongjin_rate,yinhua_tax_rate,guohu_tax_rate,nodanger_rate,benchmark_rate):
         #通过外界参数获取各个手续费率
         self.yongjin_rate=yongjin_rate
         self.yinhua_tax_rate=yinhua_tax_rate
         self.guohu_tax_rate=guohu_tax_rate
+        self.nodanger_rate=nodanger_rate         
+        self.benchmark_rate=benchmark_rate
 
     
 
