@@ -28,9 +28,13 @@ class My_Strategy:
         self.reverse_rate=0.05        #反转因子的阈值,默认为0.05
     
     def run_Strategy(self,start_time,end_time,signal_choices='default',signal_path='null'):
-        self.set_time_block(start_time,end_time)
-        self.get_stock_money()
-        self.get_signal(signal_choices,signal_path)
+        if signal_choices=='design':
+            #如果你选择自己设计信号，那么你需要给出一个信号文件的路径
+            self.start_stock_money,self.signal=self.special_stregy.run_design(self.start_time,self.end_time)
+        else:
+            self.set_time_block(start_time,end_time)
+            self.get_stock_money()
+            self.get_signal(signal_choices,signal_path)
         self.daily_data['date']=self.daily_data['date'].apply(lambda x:x.strftime('%Y-%m-%d'))
         #将日期转换为字符串格式
 

@@ -14,6 +14,7 @@ import matplotlib.dates as mdates
 import matplotlib
 matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from tkinter import filedialog
 
 class Gui_panel:
     def __init__(self, master):
@@ -31,6 +32,7 @@ class Gui_panel:
         self.all_net_value=[]                #所有股票的净值曲线，key为股票代码，value为该股票的净值曲线
         self.all_day=[]                      #所有股票的信号，key为股票代码，value为该股票的信号
         self.performance={}                  #回测指标
+        self.signal_path='null'              #信号文件的路径
 
         #反转因子参数设置
         self.reverse_time=22                 #反转因子的时间窗口,默认为22天
@@ -140,8 +142,7 @@ class Gui_panel:
         # 创建提交按钮
         self.submit_button = tk.Button(basic_info_window, text="提交", command=self.submit_basic_settings,font=("宋体", 15))
         self.submit_button.place(x=200, y=560, width=400, height=50)
-        
-    
+           
     def start_time_button(self):
         self.timemode='start'
         time_window=tk.Toplevel(self.master)
@@ -227,8 +228,6 @@ class Gui_panel:
         # 创建提交按钮
         self.begin_test = tk.Button(reverse_window, text="开始回测", command=self.submit_reverse_settings,font=("宋体", 15))
         self.begin_test.place(x=150, y=450, width=200, height=50)
-
-
     
     def hard_backtest_window(self):
         #高阶模式下的回测
@@ -266,11 +265,16 @@ class Gui_panel:
         self.begin_test_hard.place(x=150, y=350, width=200, height=50)
     
     def select_signal_file(self):
-        #选取信号文件
-        pass
+        filepath = filedialog.askopenfilename(
+        title="选择文件",
+        filetypes=(("信号文件", "*.json"),("所有文件", "*.*"))
+        )
+        if filepath:
+            self.signal_path=filepath
+
     def design_strategy(self):
-        #设计策略
-        pass
+        messagebox.showinfo(title='自定义方法', 
+                            message='请按照ReadMe文档在design_strategy.py中补全Your_strategy类中的Your_get_stock_money和Your_get_signal方法')
 
     def submit_reverse_settings(self):
         def on_complete():
@@ -282,7 +286,6 @@ class Gui_panel:
 
         backtest_thread = threading.Thread(target=thread_target)
         backtest_thread.start()
-
 
     def plot_results(self):
             # 创建一个顶层窗口
@@ -322,87 +325,68 @@ class Gui_panel:
         canvas_widget = canvas.get_tk_widget()
         canvas_widget.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
         canvas.draw()
-        
-        
-    def plot_results_old(self):
-        tree_windows = tk.Toplevel(self.master)
-        tree_windows.geometry("500x400")
-        tree_windows.title("回测结果")
-        text_box = tk.Text(tree_windows, wrap='word', font=('times new roman', 15))
-        for key, value in self.performance.items():
-            text_box.insert('end', f"{key}: {value}\n")
-        # 配置Text控件为只读（如果需要的话）
-        text_box.configure(state='disabled')
-
-        # 布局Text控件
-        text_box.pack(expand=True, fill='both')
-
-
-        # 绘图代码
-        # 移除或转换无效的日期字符串
-        self.all_day = [date for date in self.all_day if date != 'before start']
-
-        # 确保所有的日期都是有效的格式
-        self.all_day = pd.to_datetime(self.all_day, errors='coerce')
-        plt.title("Net Worth Curve")
-        plt.xlabel("Date")
-        plt.ylabel("Net Worth")
-        
-        plt.plot(self.all_day, self.all_net_value[1:])
-
-        # 设置日期格式和间隔
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-        plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=int(len(self.all_day)/8)))
-
-        plt.gcf().autofmt_xdate()
-        plt.show()
 
     def run_reverse(self):
-        reverse_window=self.progressbar.master
-        self.reverse_time=int(self.reverse_time__entry.get())
-        self.reverse_rate=float(self.reverse_rate_entry.get())
-        self.process_text.set('正在读取数据')
+        if self.mode=='easy':
+            reverse_window=self.progressbar.master
+            temp_bar=self.progressbar
+            temp_text=self.process_text
+            self.reverse_time=int(self.reverse_time__entry.get())
+            self.reverse_rate=float(self.reverse_rate_entry.get())
+        elif self.mode=='hard':
+            reverse_window=self.progressbar_hard.master
+            temp_bar=self.progressbar_hard
+            temp_text=self.process_text_hard
+        
+        temp_text.set('正在读取数据')
         data_reader=DataReader('raw_data/stk_daily.feather')
-        self.progressbar["value"]=20
+        temp_bar["value"]=20
         reverse_window.update_idletasks()#更新一下进度条
 
-        self.process_text.set('正在读取数据')
+        temp_text.set('正在读取数据')
         all_stocks,all_days=data_reader.drop_discrete_data()
-        self.progressbar["value"]=40
+        temp_bar["value"]=40
         reverse_window.update_idletasks()#更新一下进度条
 
-        self.process_text.set('正在生成信号,此过程约5min,还请耐心等待')
+        temp_text.set('正在生成信号,此过程约5min,还请耐心等待')
         my_strategy=My_Strategy(data_reader.data_new,all_stocks,all_days,self.start_money)
         my_strategy.set_time_block(self.start_time,self.end_time)#设置回测时间段
-        #my_strategy.run_Strategy(self.start_time,self.end_time)
-        my_strategy.run_Strategy(self.start_time,self.end_time,signal_choices='fromfiles',signal_path='signal.json')
-        self.progressbar["value"]=60
+        if self.signal_path!='null' and self.mode=='hard':
+            my_strategy.run_Strategy(self.start_time,self.end_time,signal_choices='fromfiles',signal_path=self.signal_path)
+        elif self.signal_path=='null' and self.mode=='hard':
+            #说明这是自定义模型
+            my_strategy.run_Strategy(self.start_time,self.end_time,signal_choices='design')
+        elif self.mode=='easy':
+            #说明这是简单模式
+            my_strategy.run_Strategy(self.start_time,self.end_time)
+            #my_strategy.run_Strategy(self.start_time,self.end_time,signal_choices='fromfiles',signal_path='signal.json')
+        temp_bar["value"]=60
         reverse_window.update_idletasks()#更新一下进度条
 
-        self.process_text.set('正在回测,此过程约2min,还请耐心等待')
+        temp_text.set('正在回测,此过程约2min,还请耐心等待')
         backtest=Backtesting(data_reader.data_new,self.start_money,
                              all_stocks,all_days,my_strategy.start_stock_money,
                              my_strategy.signal,self.start_time,self.end_time)
         backtest.set_fee_rate(self.yongjin_rate,self.yinhua_tax_rate,self.guohu_tax_rate,
                               self.nodanger_rate,self.benchmark_rate)
-        self.progressbar["value"]=70
+        temp_bar["value"]=70
         reverse_window.update_idletasks()#更新一下进度条
 
         backtest.trade_by_signal()
-        self.progressbar["value"]=90
+        temp_bar["value"]=90
         reverse_window.update_idletasks()
 
-        self.process_text.set('正在计算回测指标')
+        temp_text.set('正在计算回测指标')
         self.performance=backtest.calculate_performance_metrics()
-        self.progressbar["value"]=98
+        temp_bar["value"]=98
         reverse_window.update_idletasks()
 
-        self.process_text.set('正在生成净值曲线')
+        temp_text.set('正在生成净值曲线')
         self.all_net_value,self.all_day=backtest.draw_net_value()
-        self.progressbar["value"]=100
+        temp_bar["value"]=100
         reverse_window.update_idletasks()
 
-        self.process_text.set('回测完成！')
+        temp_text.set('回测完成！')
 
 def main():
     root = tk.Tk()

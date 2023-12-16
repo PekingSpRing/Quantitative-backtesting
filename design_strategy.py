@@ -32,7 +32,7 @@ class Your_strategy:
         # 请注意，你的策略需要返回一个字典，字典的key为股票代码，value为该股票的初始资产
 
         ################################
-        return self.stock_money
+        return self.start_stock_money
     
     def Your_get_signal(self):
         ################################
@@ -47,3 +47,9 @@ class Your_strategy:
 
         ################################
         return self.signal
+    
+    def run_design(self,start_day,end_day):
+        self.set_time_block(start_day,end_day)
+        stock_money=self.Your_get_stock_money()
+        signal=self.Your_get_signal()
+        return stock_money,signal
