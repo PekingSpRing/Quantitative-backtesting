@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 class My_Strategy:
     def __init__(self,daily_data,stock_list,date_list,start_money=100000000):
-        self.special_stregy=Your_strategy(daily_data,start_money,stock_list,date_list)
+        self.special_stregy=Your_strategy(daily_data,stock_list,date_list,start_money=100000000)
 
         self.daily_data=daily_data   #获取按日期的数据
         #self.daily_data['date']=self.daily_data['date'].apply(lambda x:x.strftime('%Y-%m-%d'))#将日期转换为字符串格式
@@ -44,9 +44,6 @@ class My_Strategy:
             sigle_money=self.start_money/len(self.stock_list)
             for stock in self.stock_list:
                 self.start_stock_money[stock]=sigle_money#初始资金每个都一样
-        elif choice=='by_market_cap':
-            #按照市值进行资产配置，但是我还没想好
-            print("第二种资产配置方式我还没想好")
         elif choice=='design':
             #按照自己的策略进行资产配置
             self.start_stock_money=self.special_stregy()

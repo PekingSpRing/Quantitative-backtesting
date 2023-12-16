@@ -11,6 +11,9 @@ from data_reader import DataReader
 import threading
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib
+matplotlib.use('TkAgg')
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class Gui_panel:
     def __init__(self, master):
@@ -27,7 +30,8 @@ class Gui_panel:
         self.benchmark_rate=0.1              #基准收益率，默认为0.1
         self.all_net_value=[]                #所有股票的净值曲线，key为股票代码，value为该股票的净值曲线
         self.all_day=[]                      #所有股票的信号，key为股票代码，value为该股票的信号
-        
+        self.performance={}                  #回测指标
+
         #反转因子参数设置
         self.reverse_time=22                 #反转因子的时间窗口,默认为22天
         self.reverse_rate=0.05               #反转因子的阈值,默认为0.05
@@ -120,8 +124,8 @@ class Gui_panel:
         benchmark_rate_label=tk.Label(basic_info_window, text="基准收益率",font=("宋体", 14),bg='white')
         benchmark_rate_label.place(x=150, y=430, width=200, height=40)
         self.benchmark_rate_entry = tk.Entry(basic_info_window,font=("times new roman", 12))
-        #设置输入框默认值是0.1
-        self.benchmark_rate_entry.insert(0, '0.1')
+        #设置输入框默认值是0.05
+        self.benchmark_rate_entry.insert(0, '0.05')
         self.benchmark_rate_entry.place(x=150, y=480, width=200, height=40)
 
         #设置无风险利率
@@ -225,10 +229,47 @@ class Gui_panel:
         self.begin_test.place(x=150, y=450, width=200, height=50)
 
 
-        pass
     
     def hard_backtest_window(self):
         #高阶模式下的回测
+        reverse_window = tk.Toplevel(self.master)
+        reverse_window.geometry("500x500")
+        reverse_window.title("自定义策略回测")
+        reverse_window.configure(bg='white')
+
+        # 创建标签和输入框
+        label_welcome_reverse = tk.Label(reverse_window, text="自定义策略回测",font=("宋体", 23),bg='white')
+        label_welcome_reverse.place(x=50, y=30,width=400, height=60)
+
+        # 创建选取信号文件按钮
+        self.choose_file = tk.Button(reverse_window, text="选取信号文件", command=self.select_signal_file,font=("宋体", 15))
+        self.choose_file.place(x=150, y=120, width=200, height=50)
+
+        # 创建自定义代码按钮
+        self.begin_test_hard = tk.Button(reverse_window, text="创建自定义代码", command=self.design_strategy,font=("宋体", 15))
+        self.begin_test_hard.place(x=150, y=190, width=200, height=50)
+
+        #放置进度条的标签
+        self.process_text_hard=tk.StringVar(value='回测进度')
+        self.label_process_hard=tk.Label(reverse_window, textvariable=self.process_text_hard,font=("宋体", 8),bg='white')
+        self.label_process_hard.place(x=50, y=270,width=400, height=30)
+
+        #放置进度条
+        self.progressbar_hard=ttk.Progressbar(reverse_window,orient="horizontal",length=380,mode="determinate")
+        self.progressbar_hard.place(x=50, y=300,width=400, height=30)
+        self.progressbar_hard["maximum"]=100
+        self.progressbar_hard["value"]=0
+        reverse_window.update_idletasks()#更新一下进度条
+
+        # 创建提交按钮
+        self.begin_test_hard = tk.Button(reverse_window, text="开始回测", command=self.submit_reverse_settings,font=("宋体", 15))
+        self.begin_test_hard.place(x=150, y=350, width=200, height=50)
+    
+    def select_signal_file(self):
+        #选取信号文件
+        pass
+    def design_strategy(self):
+        #设计策略
         pass
 
     def submit_reverse_settings(self):
@@ -241,9 +282,62 @@ class Gui_panel:
 
         backtest_thread = threading.Thread(target=thread_target)
         backtest_thread.start()
-        
-    
+
+
     def plot_results(self):
+            # 创建一个顶层窗口
+        tree_windows = tk.Toplevel(self.master)
+        tree_windows.geometry("1000x600")
+        tree_windows.title("回测结果")
+
+        # 创建 Treeview 部分
+        col = ('回测指标', '数值')
+        tree = ttk.Treeview(tree_windows, columns=col, show='headings')
+        
+        # 配置列和插入数据
+        for i in col:
+            tree.heading(i, text=i)
+            tree.column(i, width=100, anchor='center')
+        for key, value in self.performance.items():
+            tree.insert('', 'end', values=(key, value))
+
+        # 布局 Treeview
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # 绘图部分
+        self.all_day = [date for date in self.all_day if date != 'before start']
+        self.all_day = pd.to_datetime(self.all_day, errors='coerce')
+
+        fig, ax = plt.subplots()
+        ax.plot(self.all_day, self.all_net_value[1:])
+        ax.set_title("Net Worth Curve")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Net Worth")
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        ax.xaxis.set_major_locator(mdates.DayLocator(interval=int(len(self.all_day)/8)))
+        fig.autofmt_xdate()
+
+        # 将图形嵌入到 Tkinter 窗口
+        canvas = FigureCanvasTkAgg(fig, master=tree_windows)  # 注意指定 master 为 tree_windows
+        canvas_widget = canvas.get_tk_widget()
+        canvas_widget.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        canvas.draw()
+        
+        
+    def plot_results_old(self):
+        tree_windows = tk.Toplevel(self.master)
+        tree_windows.geometry("500x400")
+        tree_windows.title("回测结果")
+        text_box = tk.Text(tree_windows, wrap='word', font=('times new roman', 15))
+        for key, value in self.performance.items():
+            text_box.insert('end', f"{key}: {value}\n")
+        # 配置Text控件为只读（如果需要的话）
+        text_box.configure(state='disabled')
+
+        # 布局Text控件
+        text_box.pack(expand=True, fill='both')
+
+
         # 绘图代码
         # 移除或转换无效的日期字符串
         self.all_day = [date for date in self.all_day if date != 'before start']
@@ -254,11 +348,11 @@ class Gui_panel:
         plt.xlabel("Date")
         plt.ylabel("Net Worth")
         
-        plt.plot(self.all_day[1:], self.all_net_value)
+        plt.plot(self.all_day, self.all_net_value[1:])
 
         # 设置日期格式和间隔
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-        plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=30))
+        plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=int(len(self.all_day)/8)))
 
         plt.gcf().autofmt_xdate()
         plt.show()
@@ -299,7 +393,7 @@ class Gui_panel:
         reverse_window.update_idletasks()
 
         self.process_text.set('正在计算回测指标')
-        backtest.calculate_performance_metrics()
+        self.performance=backtest.calculate_performance_metrics()
         self.progressbar["value"]=98
         reverse_window.update_idletasks()
 
