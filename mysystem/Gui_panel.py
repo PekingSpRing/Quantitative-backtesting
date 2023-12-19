@@ -159,11 +159,16 @@ class Gui_panel:
     
     def on_date_select(self,event):
         #将选中的日期赋值给开始时间或者结束时间
-        selected_date = event.widget.selection_get()
+        selected_dates = event.widget.selection_get()
+        selected_date=selected_dates.strftime('%Y-%m-%d')
         if self.timemode=='start':
             self.start_time=selected_date
+            messagebox.showinfo(title='开始时间', message='开始时间为'+selected_date)
+            event.widget.master.destroy()
         elif self.timemode=='end':
             self.end_time=selected_date
+            messagebox.showinfo(title='结束时间', message='结束时间为'+selected_date)
+            event.widget.master.destroy()
 
     def submit_basic_settings(self):
         # 获取用户输入的值
